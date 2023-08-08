@@ -113,7 +113,7 @@ def leagueMatcher(input):  # Takes the input and matches it to a league name. Ge
             league = "UEFA European Championships"
 
         case _:  # If input matches none of the above, this is the default catch-all.
-            league = None  # Set to None so that functions can use this for troubleshooting.
+            league = input
 
     return league
 
@@ -237,9 +237,6 @@ async def matches(ctx, input_league, input_date):
 
     league = leagueMatcher(input_league)
 
-    if league == None:
-        await ctx.send("League not recognised. Please check your input and try again.")
-
     if input_date == "now":
         current_date = datetime.datetime.date(datetime.datetime.now())
         date = current_date.isoformat()
@@ -258,7 +255,11 @@ async def matches(ctx, input_league, input_date):
             date = input_date
 
     response = requests.get(f'https://www.thesportsdb.com/api/v1/json/{API_TOKEN}/eventsday.php?d={date}&s=Soccer&l={league}')
-    fixtures = response.json()
+    if response == None:
+        await ctx.send("League not recognised. Please check your input and try again.")
+
+    else:
+        fixtures = response.json()
 
     json_data = json.dumps(fixtures)
     data = json.loads(json_data)
@@ -528,7 +529,7 @@ async def table(ctx, input_league, input_season=None):
     league = leagueMatcher(input_league)
     league_id = findLeagueId(league)
 
-    if league == None:
+    if league_id == None:
         await ctx.send("League not recognised. Please check your input and try again.")
 
     if input_season == None:
@@ -538,7 +539,6 @@ async def table(ctx, input_league, input_season=None):
         season = "&s=" + input_season
 
     response = requests.get(f'https://www.thesportsdb.com/api/v1/json/{API_TOKEN}/lookuptable.php?l={league_id}{season}')
-    print(response)
 
     try:
         json_table = response.json()
