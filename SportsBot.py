@@ -1,10 +1,6 @@
-#import subprocess
 import secrets_file
 import discord
-#import time
-#import lxml
 import requests
-#from bs4 import BeautifulSoup
 from tabulate import tabulate
 from discord.ext import commands
 import pandas as pd
@@ -13,13 +9,10 @@ import json
 from dateutil import parser
 import configparser
 import asyncio
-#import operator
-#from beautifultable import BeautifulTable
 import git
 import os
 import sys
 import shutil
-import signal
 
 TOKEN = secrets_file.botToken  # Token for Discord bot.
 API_TOKEN = secrets_file.apiToken  # Token for The Sports DB.
@@ -136,8 +129,8 @@ async def on_ready():
     print(bot.user.id)
     print('------')
 
-    channel = bot.get_channel(994622102718140537)  # Get channel for bot testing room.
-    await channel.send(f"{bot.user.name} is online!")
+#    channel = bot.get_channel(994622102718140537)  # Get channel for bot testing room.
+#    await channel.send(f"{bot.user.name} is online!")
 
     repo_path = os.path.dirname(os.path.abspath(sys.argv[0]))   # Path to the local Git repository
     repo = git.Repo(repo_path)
@@ -153,7 +146,7 @@ async def on_ready():
 
         if local_branch.commit != remote_branch.commit:
             print("Shutting down for updates.")
-            await channel.send("Shutting down for updates.")
+#            await channel.send("Shutting down for updates.")
             shutil.copy2(__file__, f'{__file__}.bak')
             origin.pull()
             os.execv(sys.executable, ['python3'] + sys.argv)
@@ -186,10 +179,11 @@ async def next_matches(ctx, input_team):  # This command has one required argume
     status_table = []
     home_table = []
     away_table = []
+    opponent_table = []
     venue_table = []
     competition_table = []
     time_table = []
-    headers = ["H/A","Home","Away","Venue","Competition","Time"]
+    headers = ["H/A","Against","Competition","Time"]
 
     if fixtures['events'] is not None:
 
@@ -219,10 +213,18 @@ async def next_matches(ctx, input_team):  # This command has one required argume
 
             if input_team == event['strHomeTeam']:
                 status_table.append('H')
+                opponent_table = event['strAwayTeam']
+
             elif input_team == event['strAwayTeam']:
                 status_table.append('A')
 
-    table = tabulate(zip(status_table,home_table,away_table,venue_table,competition_table,time_table), headers=headers)
+            if input_team in event['strHomeTeam']:
+                opponent_table = event['strAwayTeam']
+
+            else:
+                opponent_table = fixtures['events'][0]['strHomeTeam']
+
+    table = tabulate(zip(status_table,opponent_table,competition_table,time_table), headers=headers)
 
     await ctx.send(f"Next five matches for {input_team}:")
     await ctx.send(table)
