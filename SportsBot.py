@@ -213,16 +213,11 @@ async def next_matches(ctx, input_team):  # This command has one required argume
 
             if input_team == event['strHomeTeam']:
                 status_table.append('H')
-                opponent_table = event['strAwayTeam']
+                opponent_table.append(event['strAwayTeam'])
 
             elif input_team == event['strAwayTeam']:
                 status_table.append('A')
-
-            if input_team in event['strHomeTeam']:
-                opponent_table = event['strAwayTeam']
-
-            else:
-                opponent_table = fixtures['events'][0]['strHomeTeam']
+                opponent_table.append(event['strHomeTeam'])
 
     table = tabulate(zip(status_table,opponent_table,competition_table,time_table), headers=headers)
 
@@ -272,7 +267,6 @@ async def matches(ctx, input_league, input_date):
     away_table = []
     venue_table = []
     time_table = []
-    space_table = []
     headers = ["Home","Away","Time"]
 
     if fixtures['events'] is not None:
@@ -280,15 +274,14 @@ async def matches(ctx, input_league, input_date):
         for event in fixtures['events']:
 
     # for event in data['events']:
-            space_table.append(' | ')
-            home_table.append(event['strHomeTeam'])
-            away_table.append(event['strAwayTeam'])
+            home_table.append("`" + event['strHomeTeam'])
+            away_table.append(event['strAwayTeam'] + '`')
 
-            if event['strVenue'] != "":
-                venue_table.append(event['strVenue'])
+#            if event['strVenue'] != "":
+#                venue_table.append(event['strVenue'])
 
-            else:
-                venue_table.append('n/a')
+#            else:
+#                venue_table.append('n/a')
 
 
             if event['strTimestamp'] is not None:
@@ -303,15 +296,15 @@ async def matches(ctx, input_league, input_date):
             else:
                 time_table.append("`time not found`")
 
-    #table = tabulate(zip(home_table,away_table,time_table), headers=headers)
-    table = zip(home_table,space_table,away_table,space_table,venue_table,space_table,time_table)
-    df = pd.DataFrame(table, columns=['Home', ' ', 'Away', ' ', 'Venue', ' ', 'Time'])
-    sorted_df = df.sort_values(by='Time')
+    table = tabulate(zip(home_table,away_table,time_table), headers=headers)
+#    table = zip(home_table,away_table,venue_table,time_table)
+#    df = pd.DataFrame(table, columns=['`Home', 'Away', 'Venue', 'Time`'])
+#    sorted_df = df.sort_values(by='Time`')
 
 
 
-#    await ctx.send('`' + table + '`')
-    await ctx.send(sorted_df.to_string(index=False))
+    await ctx.send(table)
+#    await ctx.send(sorted_df.to_string(index=False))
 
 @bot.command()
 async def matchweek(ctx, input_league, input_mw, input_season=None):
@@ -344,14 +337,14 @@ async def matchweek(ctx, input_league, input_mw, input_season=None):
     away_table = []
     venue_table = []
     time_table = []
-    headers = ["Home","Away","Venue","Time"]
+    headers = ["Home","Away","Time"]
 
     if fixtures['events'] is not None:
 
         for event in fixtures['events']:
 
-            home_table.append(event['strHomeTeam'])
-            away_table.append(event['strAwayTeam'])
+            home_table.append('`' + event['strHomeTeam'])
+            away_table.append(event['strAwayTeam'] + '`')
 
             if event['strTimestamp'] is not None:
                 time_table.append('<t:' + timeConverter(event['strTimestamp']) + ':f>')
@@ -371,7 +364,7 @@ async def matchweek(ctx, input_league, input_mw, input_season=None):
             else:
                 venue_table.append("n/a")
 
-    table = tabulate(zip(home_table,away_table,venue_table,time_table), headers=headers)
+    table = tabulate(zip(home_table,away_table,time_table), headers=headers)
 
     await ctx.send(f"Matches for {league_input} matchweek {input_mw}:")
     await ctx.send(table)
