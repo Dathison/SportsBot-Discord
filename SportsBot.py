@@ -129,8 +129,8 @@ async def on_ready():
     print(bot.user.id)
     print('------')
 
-#    channel = bot.get_channel(994622102718140537)  # Get channel for bot testing room.
-#    await channel.send(f"{bot.user.name} is online!")
+    channel = bot.get_channel(1138455667133382716)  # Get channel for bot testing room.
+    await channel.send(f"{bot.user.name} is online!")
 
     repo_path = os.path.dirname(os.path.abspath(sys.argv[0]))   # Path to the local Git repository
     repo = git.Repo(repo_path)
@@ -146,7 +146,7 @@ async def on_ready():
 
         if local_branch.commit != remote_branch.commit:
             print("Shutting down for updates.")
-#            await channel.send("Shutting down for updates.")
+            await channel.send("Shutting down for updates.")
             shutil.copy2(__file__, f'{__file__}.bak')
             origin.pull()
             os.execv(sys.executable, ['python3'] + sys.argv)
