@@ -421,96 +421,132 @@ async def next_match(ctx):
     club = club_response.json()
     fixtures = match_response.json()
 
-    if fixtures['events'] is not None and today == fixtures['events'][0]['dateEvent']:
-        matchLeague = fixtures['events'][0]['strLeague']
-        matchHomeTeam = fixtures['events'][0]['strHomeTeam']
-        matchAwayTeam = fixtures['events'][0]['strAwayTeam']
+     if fixtures['events'] is not None and int(timeConverter(fixtures['events'][0]['strTimestamp'])) > int(time.time()): # If the first listed match start time is ahead of the time now (If it has yet to start):
 
-        if fixtures['events'][0]['strTimestamp'] is not None:
-                matchTime = ('<t:' + timeConverter(fixtures['events'][0]['strTimestamp']) + ':t>')
+        if today == fixtures['events'][0]['dateEvent']:
+            matchLeague = fixtures['events'][0]['strLeague']
+            matchHomeTeam = fixtures['events'][0]['strHomeTeam']
+            matchAwayTeam = fixtures['events'][0]['strAwayTeam']
 
-        elif fixtures['events'][0]['strTimeLocal'] is not None:
-                matchTime = (fixtures['events'][0]['strTimeLocal'][:5] + ' local time')
+            if fixtures['events'][0]['strTimestamp'] is not None:
+                    matchTime = ('<t:' + timeConverter(fixtures['events'][0]['strTimestamp']) + ':t>')
 
-        elif fixtures['events'][0]['strTime'] is not None:
-                matchTime = (fixtures['events'][0]['strTime'][:5])
+            elif fixtures['events'][0]['strTimeLocal'] is not None:
+                    matchTime = (fixtures['events'][0]['strTimeLocal'][:5] + ' local time')
+
+            elif fixtures['events'][0]['strTime'] is not None:
+                    matchTime = (fixtures['events'][0]['strTime'][:5])
+
+            else:
+                    matchTime = "`time not found`"
+
+            if fixtures['events'][0]['strVenue'] != "":
+                    matchVenue = fixtures['events'][0]['strVenue']
+
+            else:
+                    matchVenue = "`stadium not found`"
+
+            matchWeek = fixtures['events'][0]['intRound']
+            matchHomeTeam = fixtures['events'][0]['strHomeTeam']
+            matchAwayTeam = fixtures['events'][0]['strAwayTeam']
+            matchCompetition = fixtures['events'][0]['strLeague']
+
+            if main_club in fixtures['events'][0]['strHomeTeam']:
+                matchOpponent = fixtures['events'][0]['strAwayTeam']
+                matchStatus = "H"
+
+            else:
+                matchOpponent = fixtures['events'][0]['strHomeTeam']
+                matchStatus = 'A'
+
+            # Extract the image link from JSON data
+            if fixtures['events'][0]['strThumb'] is not None:
+                image_link = fixtures['events'][0]['strThumb']
+
+            elif fixtures['events'][0]['strSquare'] is not None:
+                image_link = fixtures['events'][0]['strSquare']
+
+            elif fixtures['events'][0]['strPoster'] is not None:
+                image_link = fixtures['events'][0]['strPoster']
+
+            elif fixtures['events'][0]['strBanner'] is not None:
+                image_link = fixtures['events'][0]['strBanner']
+
+            await ctx.send(f"Matchday!\n({matchStatus}) **{matchHomeTeam}** - **{matchAwayTeam}** @ {matchVenue} at **{matchTime}**!\n{matchCompetition} Matchweek {matchWeek}.")
+
+            if image_link != "":  # If there is an image to embed:
+                # Create an embed with the image
+                image_name = f"{matchLeague} matchweek {matchWeek}: {matchHomeTeam} - {matchAwayTeam}"
+                embed = discord.Embed(title=image_name, color=discord.Color(colourToHex(club['teams'][0]['strKitColour1'])))  # Uses hex code for colouring embed line.
+                embed.set_image(url=image_link)
+
+                await ctx.send(embed=embed)  # Send the embed as a message
 
         else:
-                matchTime = "`time not found`"
-
-        if fixtures['events'][0]['strVenue'] != "":
-                matchVenue = fixtures['events'][0]['strVenue']
-
-        else:
-                matchVenue = "`stadium not found`"
-
-        matchWeek = fixtures['events'][0]['intRound']
-        matchHomeTeam = fixtures['events'][0]['strHomeTeam']
-        matchAwayTeam = fixtures['events'][0]['strAwayTeam']
-        matchCompetition = fixtures['events'][0]['strLeague']
-
-        if main_club in fixtures['events'][0]['strHomeTeam']:
-            matchOpponent = fixtures['events'][0]['strAwayTeam']
-            matchStatus = "H"
-
-        else:
-            matchOpponent = fixtures['events'][0]['strHomeTeam']
-            matchStatus = 'A'
-
-        # Extract the image link from JSON data
-        if fixtures['events'][0]['strThumb'] is not None:
-            image_link = fixtures['events'][0]['strThumb']
-
-        elif fixtures['events'][0]['strSquare'] is not None:
-            image_link = fixtures['events'][0]['strSquare']
-
-        elif fixtures['events'][0]['strPoster'] is not None:
-            image_link = fixtures['events'][0]['strPoster']
-
-        elif fixtures['events'][0]['strBanner'] is not None:
-            image_link = fixtures['events'][0]['strBanner']
-
-        await ctx.send(f"Matchday!\n({matchStatus}) **{matchHomeTeam}** - **{matchAwayTeam}** @ {matchVenue} at **{matchTime}**!\n{matchCompetition} Matchweek {matchWeek}.")
-
-        if image_link != "":  # If there is an image to embed:
-            # Create an embed with the image
-            image_name = f"{matchLeague} matchweek {matchWeek}: {matchHomeTeam} - {matchAwayTeam}"
-            embed = discord.Embed(title=image_name, color=discord.Color(colourToHex(club['teams'][0]['strKitColour1'])))  # Uses hex code for colouring embed line.
-            embed.set_image(url=image_link)
-
-            await ctx.send(embed=embed)  # Send the embed as a message
-
-    elif fixtures['events'] is not None:
-
-        if fixtures['events'][0]['strTimestamp'] is not None:
+    
+            if fixtures['events'][0]['strTimestamp'] is not None:
                 matchTime = ('<t:' + timeConverter(fixtures['events'][0]['strTimestamp']) + ':f>')
                 matchToGo = ('<t:' + timeConverter(fixtures['events'][0]['strTimestamp']) + ':R>')
 
-        elif fixtures['events'][0]['strTimeLocal'] is not None:
+            elif fixtures['events'][0]['strTimeLocal'] is not None:
                 matchTime = (fixtures['events'][0]['strTimeLocal'][:5] + ' local time')
 
-        elif fixtures['events'][0]['strTime'] is not None:
+            elif fixtures['events'][0]['strTime'] is not None:
                 matchTime = (fixtures['events'][0]['strTime'][:5])
+
+            else:
+                matchTime = "`time not found`"
+
+            if main_club in fixtures['events'][0]['strHomeTeam']:
+                matchOpponent = fixtures['events'][0]['strAwayTeam']
+                matchStatus = "at home"
+
+            else:
+                matchOpponent = fixtures['events'][0]['strHomeTeam']
+                matchStatus = 'away'
+
+            if fixtures['events'][0]['strVenue'] != "":
+                matchVenue = fixtures['events'][0]['strVenue']
+
+            else:
+                matchVenue = "`stadium not found`"
+
+            matchWeek = fixtures['events'][0]['intRound']
+            matchCompetition = fixtures['events'][0]['strLeague']
+
+            await ctx.send(f"The next match is {matchStatus} against {matchOpponent} at {matchVenue}. It is on {matchTime} which is {matchToGo}.")
+
+    elif fixtures['events'] is not None and int(timeConverter(fixtures['events'][0]['strTimestamp'])) < int(time.time()):   # If the first listed match start time is behind the current time (If a match has already started):
+
+        if fixtures['events'][1]['strTimestamp'] is not None:
+                matchTime = ('<t:' + timeConverter(fixtures['events'][1]['strTimestamp']) + ':f>')
+                matchToGo = ('<t:' + timeConverter(fixtures['events'][1]['strTimestamp']) + ':R>')
+
+        elif fixtures['events'][1]['strTimeLocal'] is not None:
+                matchTime = (fixtures['events'][1]['strTimeLocal'][:5] + ' local time')
+
+        elif fixtures['events'][1]['strTime'] is not None:
+                matchTime = (fixtures['events'][1]['strTime'][:5])
 
         else:
                 matchTime = "`time not found`"
 
-        if main_club in fixtures['events'][0]['strHomeTeam']:
-                    matchOpponent = fixtures['events'][0]['strAwayTeam']
+        if main_club in fixtures['events'][1]['strHomeTeam']:
+                    matchOpponent = fixtures['events'][1]['strAwayTeam']
                     matchStatus = "at home"
 
         else:
-                    matchOpponent = fixtures['events'][0]['strHomeTeam']
+                    matchOpponent = fixtures['events'][1]['strHomeTeam']
                     matchStatus = 'away'
 
-        if fixtures['events'][0]['strVenue'] != "":
-                    matchVenue = fixtures['events'][0]['strVenue']
+        if fixtures['events'][1]['strVenue'] != "":
+                    matchVenue = fixtures['events'][1]['strVenue']
 
         else:
                     matchVenue = "`stadium not found`"
 
-        matchWeek = fixtures['events'][0]['intRound']
-        matchCompetition = fixtures['events'][0]['strLeague']
+        matchWeek = fixtures['events'][1]['intRound']
+        matchCompetition = fixtures['events'][1]['strLeague']
 
         await ctx.send(f"The next match is {matchStatus} against {matchOpponent} at {matchVenue}. It is on {matchTime} which is {matchToGo}.")
 
