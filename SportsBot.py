@@ -421,7 +421,7 @@ async def next_match(ctx):
     club = club_response.json()
     fixtures = match_response.json()
 
-     if fixtures['events'] is not None and int(timeConverter(fixtures['events'][0]['strTimestamp'])) > int(time.time()): # If the first listed match start time is ahead of the time now (If it has yet to start):
+    if fixtures['events'] is not None and int(timeConverter(fixtures['events'][0]['strTimestamp'])) > int(time.time()): # If the first listed match start time is ahead of the time now (If it has yet to start):
 
         if today == fixtures['events'][0]['dateEvent']:
             matchLeague = fixtures['events'][0]['strLeague']
