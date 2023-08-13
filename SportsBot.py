@@ -13,6 +13,7 @@ import git
 import os
 import sys
 import shutil
+import time
 
 TOKEN = secrets_file.botToken  # Token for Discord bot.
 API_TOKEN = secrets_file.apiToken  # Token for The Sports DB.
@@ -485,7 +486,7 @@ async def next_match(ctx):
         else:
     
             if fixtures['events'][0]['strTimestamp'] is not None:
-                matchTime = ('<t:' + timeConverter(fixtures['events'][0]['strTimestamp']) + ':f>')
+                matchTime = ('<t:' + timeConverter(fixtures['events'][0]['strTimestamp']) + ':F>')
                 matchToGo = ('<t:' + timeConverter(fixtures['events'][0]['strTimestamp']) + ':R>')
 
             elif fixtures['events'][0]['strTimeLocal'] is not None:
