@@ -625,6 +625,105 @@ async def table(ctx, input_league, input_season=None):
         await ctx.send(f"{league} table for the {input_season} season.")
         await ctx.send(f"```{table}```")
 
+@bot.command()
+async def past_matches(ctx, input_team):  # This command has one required argument (`input_team`) which means that the command name has to be followed by an argument in Discord.
+    """Finds the past five matches for a team.
+        Usage: {team}
+
+        Parameters:
+        -   team: The full name or nickname of the team to search for.
+    """
+
+    try:
+        team_id = findTeamId(input_team)  # Takes the input and pushes it through the function for finding the team ID. `team_id` is set to this function to save it more permanently for use further in this command.
+
+        try:
+            match_response = requests.get(f'https://www.thesportsdb.com/api/v1/json/{API_TOKEN}/eventslast.php?id={team_id}')
+            fixtures = match_response.json()
+        except:
+            await ctx.send(f"Fetching data failed.")
+
+        try:
+            status_table = []
+            home_table = []
+            score_table = []
+            away_table = []
+            venue_table = []
+            competition_table = []
+            time_table = []
+            separator_table = []
+            headers = ["H/A","Home","Score","Away","Venue","Competition","Time"]
+
+        except:
+            await ctx.send(f"Initialising tables failed.")
+
+        if fixtures['results'] is not None:
+
+            for event in fixtures['results']:
+
+                try:
+                    home_table.append(event['strHomeTeam'])
+            
+                except:
+                    await ctx.send(f"Home team failed.")
+                
+                try:
+                    score_table.append(event['intHomeScore'] + '-' + event['intAwayScore'])
+                
+                except:
+                    await ctx.send(f"Home score failed.")
+                    
+                try:
+                    away_table.append(event['strAwayTeam'])
+
+                except:
+                    await ctx.send(f"Away team failed.")               
+                
+                try:
+                    competition_table.append(event['strLeague'] + '`')
+
+                except:
+                    await ctx.send(f"League failed.")                
+                                
+                separator_table.append("-")
+
+                try:
+                    if event['strTimestamp'] is not None:
+                        time_table.append('<t:' + timeConverter(event['strTimestamp']) + ':f>')
+
+                    elif event['strTimeLocal'] is not None:
+                        time_table.append(event['strTimeLocal'][:5])
+
+                    elif event['strTime'] is not None:
+                        time_table.append(event['strTime'][:5])
+
+                    else:
+                        time_table.append("n/a")
+                
+                except:
+                    await ctx.send(f"Time table failed.")
+
+                if event['strVenue'] is not None:
+                    venue_table.append(event['strVenue'])
+
+                else:
+                    venue_table.append("n/a")
+
+                if input_team == event['strHomeTeam']:
+                    status_table.append('`H')
+                elif input_team == event['strAwayTeam']:
+                    status_table.append('`A')
+
+            table = tabulate(zip(status_table,home_table,score_table,away_table,venue_table,competition_table,time_table), headers=headers)
+
+            await ctx.send(f"Last five matches for {input_team}, with the most recent one first:")
+            await ctx.send(table)
+
+    except Exception as error:
+        print(error)
+        await ctx.send(f"Command failed, please try again!")
+        await ctx.send(error)
+
 try:
     # Run the bot with the token to connect it to Discord
     bot.run(TOKEN)
