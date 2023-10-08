@@ -12,6 +12,7 @@ import asyncio
 import git
 import os
 import sys
+import time
 import shutil
 import time
 
@@ -138,7 +139,7 @@ async def on_ready():
 
     while True and '.bak' not in __file__:  # While true and the file isn't a backup:
 
-        print("Fetching changes from remote...")
+        print(f"{bot.user.name} fetching changes from remote...")
         origin = repo.remote(name="origin")
         origin.fetch()
 
