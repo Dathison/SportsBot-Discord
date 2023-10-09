@@ -15,6 +15,9 @@ import sys
 import time
 import shutil
 import time
+import matplotlib.pyplot as plt
+from adjustText import adjust_text
+
 
 TOKEN = secrets_file.botToken  # Token for Discord bot.
 API_TOKEN = secrets_file.apiToken  # Token for The Sports DB.
@@ -153,7 +156,7 @@ async def on_ready():
             origin.pull()
             os.execv(sys.executable, ['python3'] + sys.argv)
 
-        await asyncio.sleep(1800)
+        await asyncio.sleep(180)
 
 @bot.command()
 async def hello(ctx):
@@ -597,7 +600,7 @@ async def table(ctx, input_league, input_season=None):
     gd = []
     points = []
     form = []
-    headers = ['Pos','Team','GP','W','D','L','GF','GA','GD','P','Form']
+    headers = ['Pos','Team','Games','Win','Draw','Loss','G-F','G-A','G-D','Pts','Form']
 
     for i in range(len(json_table['table'])):
 
@@ -613,18 +616,62 @@ async def table(ctx, input_league, input_season=None):
         points.append(json_table['table'][i]['intPoints'])
         form.append(json_table['table'][i]['strForm'])
 
-    table = tabulate(zip(pos,team,played,win,draw,loss,gf,ga,gd,points,form), headers=headers)
+    table = list(zip(pos,team,played,win,draw,loss,gf,ga,gd,points,form))
 
+    try:
+
+        # Create Figure and Axes
+        fig, ax = plt.subplots(figsize=(10, 6))
+
+        # Create Table
+        ax.axis('tight')
+        ax.axis('off')
+        ax.margins(x=0)
+        png_table = ax.table(cellText=table,
+                            colLabels=headers,
+                            cellLoc = 'center', 
+                            loc='center')
+
+        # Make the columns auto-adjust in width
+        png_table.auto_set_column_width(col=list(range(len(table))))
+
+        # Make the rows alternating colours, and give the header row a distinct style.
+        colors = ["darkgray", "gray"]
+        for i, key in enumerate(png_table.get_celld().keys()):
+            row, col = key
+            if row == 0:
+                # Header row
+                png_table.get_celld()[(row, col)].set_fontsize(12)
+                png_table.get_celld()[(row, col)].set_text_props(weight='bold')
+                png_table.get_celld()[(row, col)].set_facecolor('lightgray')
+            else:
+                # Data rows
+                png_table.get_celld()[(row, col)].set_facecolor(colors[row % len(colors)])
+
+                # Save as PNG
+        
+        plt.savefig("/tmp/g_league_table.png", dpi=300, bbox_inches='tight', transparent=True)
+    
+    except Exception as error:
+        await ctx.send(f"Error creating table. Please try again.")
+        await ctx.send(f"{error}")
+    
     if league_id == None or json_table == None:  # If no league is found or if no output has been made to the tables:
         pass  # Don't do anything.
 
     elif league != None and input_season == None:
         await ctx.send(f"{league} table for the latest season.")
-        await ctx.send(f"```{table}```")
+        embed = discord.Embed(title=f"{league}", description="Latest completed season") #creates embed
+        file = discord.File("/tmp/g_league_table.png", filename="image.png")
+        embed.set_image(url="attachment://image.png")
+        await ctx.send(file=file, embed=embed)
 
     elif league != None and input_season != None:
         await ctx.send(f"{league} table for the {input_season} season.")
-        await ctx.send(f"```{table}```")
+        embed = discord.Embed(title=f"{league}", description=f"{input_season}") #creates embed
+        file = discord.File("/tmp/g_league_table.png", filename="image.png")
+        embed.set_image(url="attachment://image.png")
+        await ctx.send(file=file, embed=embed)
 
 @bot.command()
 async def past_matches(ctx, input_team):  # This command has one required argument (`input_team`) which means that the command name has to be followed by an argument in Discord.
@@ -724,6 +771,147 @@ async def past_matches(ctx, input_team):  # This command has one required argume
         print(error)
         await ctx.send(f"Command failed, please try again!")
         await ctx.send(error)
+
+@bot.command()
+async def stats(ctx, stat):
+    """Shows the specified stat.
+        Usage: {stat}
+
+        Parameters:
+        -   stat: The stat you want Better Gaudium to generate a graph for. Only general Premier League stats for now unless specified otherwise.
+
+        Stats available:
+        -   goals: Shows goals scored against minutes played.
+        -   assists: Shows assists against minutes played.
+        -   xg: Shows net xG against opponents in all competitions.
+    """
+    standard_stats = ['goals', 'assists']
+    all_comps = ['xg']
+
+    if str(stat.lower()) in standard_stats:
+        url = 'https://fbref.com/en/comps/9/stats/Premier-League-Stats'
+
+        if str(stat.lower()) == 'goals':
+            stat1 = 'Gls'
+            stat1_fn = 'Goals scored'       # stat1 full name
+            stat2 = 'Min'
+            stat2_fn = 'Minutes played'     # stat2 full name
+
+        elif str(stat.lower()) == 'assists':
+            stat1 = 'Ast'
+            stat1_fn = 'Assists'            # stat1 full name
+            stat2 = 'Min'
+            stat2_fn = 'Minutes played'     # stat2 full name
+
+        response = requests.get(url).text.replace('<!--', '').replace('-->', '')
+        df = pd.read_html(response, header=1)[2]
+        df = df.tail(-1)                                                                            # Drop the first row (Headers row).
+        df = df.sort_values(by=[stat1, stat2])                                                      # Sort dataframe by "Gls" then "Min" rows.
+        df[stat2] = pd.to_numeric(df[stat2], errors='coerce')                                       # Turn "Min" column to integers for maths further on.
+        df[stat1] = pd.to_numeric(df[stat1], errors='coerce')                                       # Turn "Gls" column to integers for maths further on.
+        df = df.drop(df[df[stat2] <= df[stat2].max() * 0.2].index)                                  # Drop all entries with less than x percent of max stat2.
+        df = df.drop(df[df[stat1] <= df[stat1].max() * 0.2].index)
+        df = df.drop(df[df['Pos'] == 'GK'].index)                                                   # Drop all goalkeepers.
+
+        plt.figure(1, figsize=(10, 6))                                                                 # Set the figure size.
+        plt.scatter(df[stat2], df[stat1])                                                           # Create scatter plot.
+        plt.xlabel(f'{stat2_fn}')                                                                   # Label for x-axis.
+        plt.ylabel(f'{stat1_fn}')                                                                   # Label for y-axis.
+        plt.title(f'{stat1_fn} vs {stat2_fn}')                                                      # Title of the plot.
+        plt.xlim([min(df[stat2])-10, max(df[stat2])+10])                                            # Set x axis limit to be just above and below the max and min "Min" of all entries.
+        plt.ylim([min(df[stat1])-1, max(df[stat1])+1])                                              # Set y axis limit to be just above and below the max and min "Gls" of all entries.
+
+        x_min = df[stat2].min()
+        x_start = (x_min // 90) * 90
+        x_line = [x_start, max(df[stat2])]
+
+        if str(stat.lower()) == 'goals':
+            y_line_low = [min_x/90 * 0.5 for min_x in x_line]
+            y_line_high = [min_x/90 for min_x in x_line]
+            line_label1 = f'1 {stat1} per 180 min'
+            line_label2 = f'1 {stat1} per 90 min'
+
+        elif str(stat.lower()) == 'assists':
+            y_line_low = [min_x/90 * 0.33 for min_x in x_line]
+            y_line_high = [min_x/90 * 0.5 for min_x in x_line]  
+            line_label1 = f'1 {stat1} per 270 min'
+            line_label2 = f'1 {stat1} per 180 min'
+            
+        plt.plot(x_line, y_line_low, linestyle='--', color='brown', label=line_label1)
+        plt.plot(x_line, y_line_high, linestyle='--', color='green', label=line_label2)  
+        plt.xticks(range(int(x_start), int(max(df[stat2])), 90))                                    # Set grid lines to have have a step of 90.
+        plt.xticks(rotation=45)
+        plt.grid(True)
+
+        plt.legend()
+
+            # Adjust plot annotations so that they don't overlap as much.
+        try:
+            texts = []
+
+            if str(stat.lower()) == 'goals':
+                for i, player in enumerate(df['Player']):
+                    if df[stat2].iloc[i] / 90 < df[stat1].iloc[i] or df['Squad'].iloc[i] == 'Manchester Utd' and df[stat2].iloc[i] >= df[stat2].max() * 0.25:    # If squad is Spurs or if scoring more than 1 goal per 90:
+                        texts.append(plt.annotate(player, (df[stat2].iloc[i], df[stat1].iloc[i])))
+
+            elif str(stat.lower()) == 'assists':
+                for i, player in enumerate(df['Player']):
+                    if df[stat2].iloc[i] / 180 < df[stat1].iloc[i] or df['Squad'].iloc[i] == 'Manchester Utd' and df[stat2].iloc[i] >= df[stat2].max() * 0.25:    # If squad is Spurs or if scoring more than 1 goal per 90:
+                        texts.append(plt.annotate(player, (df[stat2].iloc[i], df[stat1].iloc[i])))
+
+            adjust_text(texts)
+
+        except:
+            pass
+
+        plt.savefig("/tmp/g_graph.png")
+
+        try:
+            embed = discord.Embed(title=f"{stat1_fn} in the Premier League.", description=f"Current season.") #creates embed
+            file = discord.File("/tmp/g_graph.png", filename="image.png")
+            embed.set_image(url="attachment://image.png")
+            await ctx.send(file=file, embed=embed)
+            plt.close()
+
+        except Exception as error:
+            print(type(error))
+            print(error)
+
+    if str(stat.lower()) in all_comps:
+        url = 'https://fbref.com/en/squads/19538871/2023-2024/all_comps/Manchester-United-Stats-All-Competitions'
+        response = requests.get(url).text.replace('<!--', '').replace('-->', '')
+        df = pd.read_html(response, header=0)[4]
+
+        df['Opp_Venue'] = df.apply(lambda row: f"{row['Opponent']} (H)" if row['Venue'] == 'Home' else f"{row['Opponent']} (A)", axis=1)
+        df['xGT'] = df['xG'] - df['xGA']    # xG Total
+        df = df.dropna(subset=['xG', 'xGA'])
+
+        # Create a bar graph
+        plt.figure(2, figsize=(10, 6)) 
+        plt.bar(df['Opp_Venue'], df['xGT'], color=['green' if x >= 0 else 'red' for x in df['xGT']])
+
+        # Adding labels and title
+        plt.xlabel('Opponent')
+        plt.ylabel('Net xG')
+        plt.suptitle('Net xG bar chart')
+        plt.title('All competitions (Where available)')
+        plt.axhline(0, color='black',linewidth=0.8)  # This adds a horizontal line at y=0 to distinguish positive and negative values
+
+        # Annotate the bars
+        for i, value in enumerate(df['xGT']):
+            plt.annotate(f'{value:.1f}', (i, value), ha='center', va='bottom' if value < 0 else 'top')
+
+        # Display the graph
+        plt.xticks(rotation=45)  # This rotates the x-axis labels for better readability
+        plt.tight_layout()  # This adjusts the layout so that labels are not cut off
+
+        plt.savefig("/tmp/g_xg.png")
+
+        embed = discord.Embed(title=f"Net xG for Manchester United.", description=f"Current season.") #creates embed
+        file = discord.File("/tmp/g_xg.png", filename="image.png")
+        embed.set_image(url="attachment://image.png")
+        await ctx.send(file=file, embed=embed)
+        plt.close()
 
 try:
     # Run the bot with the token to connect it to Discord
