@@ -781,14 +781,16 @@ async def stats(ctx, stat):
         -   stat: The stat you want Better Gaudium to generate a graph for. Only general Premier League stats for now unless specified otherwise.
 
         Stats available:
-        -   goals: Shows goals scored against minutes played.
-        -   assists: Shows assists against minutes played.
-        -   xg: Shows net xG against opponents in all competitions.
+        -   goals: Scatterplot of goals scored against minutes played.
+        -   assists: Scatterplot of assists against minutes played.
+        -   xg: Bar chart of net xG against opponents in all competitions.
+        -   sentoff: Pie chart of all sending offs per team.
     """
-    standard_stats = ['goals', 'assists']
-    all_comps = ['xg']
+    scatter_plot = ['goals', 'assists']
+    bar_chart = ['xg']
+    pie_chart = ['sentoff']
 
-    if str(stat.lower()) in standard_stats:
+    if str(stat.lower()) in scatter_plot:
         url = 'https://fbref.com/en/comps/9/stats/Premier-League-Stats'
 
         if str(stat.lower()) == 'goals':
@@ -813,7 +815,7 @@ async def stats(ctx, stat):
         df = df.drop(df[df[stat1] <= df[stat1].max() * 0.2].index)
         df = df.drop(df[df['Pos'] == 'GK'].index)                                                   # Drop all goalkeepers.
 
-        plt.figure(1, figsize=(10, 6))                                                                 # Set the figure size.
+        plt.figure(1, figsize=(10, 6))                                                                # Set the figure size.
         plt.scatter(df[stat2], df[stat1])                                                           # Create scatter plot.
         plt.xlabel(f'{stat2_fn}')                                                                   # Label for x-axis.
         plt.ylabel(f'{stat1_fn}')                                                                   # Label for y-axis.
@@ -877,7 +879,7 @@ async def stats(ctx, stat):
             print(type(error))
             print(error)
 
-    if str(stat.lower()) in all_comps:
+    if str(stat.lower()) in bar_chart:
         url = 'https://fbref.com/en/squads/19538871/2023-2024/all_comps/Manchester-United-Stats-All-Competitions'
         response = requests.get(url).text.replace('<!--', '').replace('-->', '')
         df = pd.read_html(response, header=0)[4]
@@ -912,6 +914,32 @@ async def stats(ctx, stat):
         embed.set_image(url="attachment://image.png")
         await ctx.send(file=file, embed=embed)
         plt.close()
+
+    if str(stat.lower()) in pie_chart:
+        if str(stat.lower()) == 'sentoff':
+        
+            url = 'https://fbref.com/en/comps/9/Premier-League-Stats'
+
+            response = requests.get(url).text.replace('<!--', '').replace('-->', '')
+            df = pd.read_html(response, header=1)[22]
+
+            df['TC'] = df['CrdR'] + df['2CrdY']     # Total Cards
+            df = df[df.TC > 0]
+            df = df.sort_values(by=['TC', 'CrdR'])
+
+            plt.figure(3, figsize=(14, 12))
+
+            plt.pie(df['TC'].values, labels=df['Squad'].values, startangle = 90, autopct='%.2f%%', wedgeprops={'edgecolor':'k', 'antialiased': True})
+            plt.suptitle(f'# of players sent off in the Premier League by team')
+            plt.title(f'Red cards + Second yellows')
+
+            plt.savefig("/tmp/g_sentoff.png", dpi=400)
+
+            embed = discord.Embed(title=f"Players sent off by team.", description=f"Current season in the Premier League.") #creates embed
+            file = discord.File("/tmp/g_sentoff.png", filename="image.png")
+            embed.set_image(url="attachment://image.png")
+            await ctx.send(file=file, embed=embed)
+            plt.close()
 
 try:
     # Run the bot with the token to connect it to Discord
