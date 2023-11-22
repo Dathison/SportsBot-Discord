@@ -1,3 +1,10 @@
-pandas
+discord.py
+requests
 tabulate
+pandas
+python-dateutil
+configparser
 gitpython
+matplotlib
+adjustText
+pytz
