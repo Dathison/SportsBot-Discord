@@ -164,3 +164,4 @@ secrets_*
 *.ini
 .venv_*
 *.db
+*.py.bak
