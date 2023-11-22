@@ -1,0 +1,41 @@
+== [0.0.2] - 2023-11-03
+
+=== Added
+
+
+
+== [0.0.1] - 2023-11-03
+
+=== Added
+
+* Initial changelog release
+
+=== Changed
+
+* {blank}
+[loweralpha, start=24]
+. {blank}
+
+=== Deprecated
+
+* {blank}
+[loweralpha, start=24]
+. {blank}
+
+=== Removed
+
+* {blank}
+[loweralpha, start=24]
+. {blank}
+
+=== Fixed
+
+* {blank}
+[loweralpha, start=24]
+. {blank}
+
+=== Security
+
+* {blank}
+[loweralpha, start=24]
+. {blank}

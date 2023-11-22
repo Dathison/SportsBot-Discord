@@ -17,7 +17,17 @@ import shutil
 import time
 import matplotlib.pyplot as plt
 from adjustText import adjust_text
+import sqlite3
+import pytz
 
+DB_NAME = "leaderboard.db"
+db_create = """
+CREATE TABLE IF NOT EXISTS users (
+    user_id TEXT,
+    user_name TEXT,
+    exp INT
+);
+"""
 
 TOKEN = secrets_file.botToken  # Token for Discord bot.
 API_TOKEN = secrets_file.apiToken  # Token for The Sports DB.
@@ -27,6 +37,71 @@ intents.members = True # If you ticked the SERVER MEMBERS INTENT
 description = '''The new and improved Gaudium you never knew you needed!'''
 bot = commands.Bot(command_prefix='g!', description=description, help_command=commands.DefaultHelpCommand(), intents=intents)
 
+class Leaderboard:
+    _instance = None
+    _conn = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(Leaderboard, cls).__new__(cls)
+            cls._instance._conn = sqlite3.connect(DB_NAME)
+        return cls._instance
+
+    def create_table(self):
+        cursor = self._conn.cursor()
+
+        cursor.execute(db_create)
+        self._conn.commit()
+
+    def add_exp(self, user_id, user_name):
+        cursor = self._conn.cursor()
+
+        cursor.execute("SELECT exp FROM users WHERE user_id=?", (user_id,))
+        result = cursor.fetchone()
+
+        if result:
+            new_count = result[0] + 1
+            cursor.execute("UPDATE users SET exp=? WHERE user_id=?", (new_count, user_id))
+        else:
+            cursor.execute("INSERT INTO users (user_id, user_name, exp) VALUES (?, ?, 0)", (user_id, user_name))
+
+        self._conn.commit()
+
+    def convert_to_level(self, exp, increment=10):
+        return (exp // increment) + 1
+    
+    def print_table(self):
+        cursor = self._conn.cursor()
+
+        cursor.execute("SELECT * FROM users ORDER BY exp DESC")
+        data = cursor.fetchall()
+
+        self.columns = [desc[0] for desc in cursor.description]  # Fetches the column names from the table.
+
+        fig, ax = plt.subplots()
+
+        ax.axis('off')
+        ax.axis('tight')
+        table_data = [self.columns] + data
+        ax.table(cellText=table_data, cellLoc = 'center', loc='center')
+
+        fig.tight_layout()
+
+        plt.savefig("/tmp/leaderboard.png")
+        plt.close()
+        
+        embed = discord.Embed(title=f"User leaderboard")
+        file = discord.File("/tmp/leaderboard.png", filename="image.png")
+        embed.set_image(url="attachment://image.png")
+
+        return file, embed
+
+def timeNow():
+    current_utc_time = datetime.datetime.now(pytz.utc)
+    iso_now = current_utc_time.strftime('%Y-%m-%dT%H:%M:%S%z')
+
+    return iso_now
+
 def timeConverter(timestamp):  # Converts ISO 8601 timestamps into Unix Epoch timestamps, something that Discord can use for its dynamic timestamps.
     # DEP: dateutil.parser
 
@@ -34,6 +109,14 @@ def timeConverter(timestamp):  # Converts ISO 8601 timestamps into Unix Epoch ti
     epoch_timestamp = int(dt_object.timestamp())  # Converts the output to an epoch timestamp in the form of an int.
 
     return str(epoch_timestamp)  # Then converts back to a string. This automatically removes the decimal number. There is probably a more correct way to do this, but this seemed the easiest.
+
+def toMidnight(timestamp):
+    original_timestamp = timestamp
+    dt = datetime.datetime.fromisoformat(original_timestamp)
+    midnight_timestamp = dt.replace(hour=0, minute=0, second=0, microsecond=0)
+    mn_unix = midnight_timestamp.timestamp()
+
+    return mn_unix
 
 def findTeamId(team):  # Finds the corresponding The Sports DB team ID for the give input.
 
@@ -137,6 +220,8 @@ async def on_ready():
     channel = bot.get_channel(1138455667133382716)  # Get channel for bot testing room.
     await channel.send(f"{bot.user.name} is online!")
 
+    lb = Leaderboard()
+
     repo_path = os.path.dirname(os.path.abspath(sys.argv[0]))   # Path to the local Git repository
     repo = git.Repo(repo_path)
 
@@ -159,9 +244,33 @@ async def on_ready():
         await asyncio.sleep(180)
 
 @bot.command()
+async def leaderboard(ctx):
+    lb = Leaderboard()
+
+    file, embed = lb.print_table()
+    await ctx.send(file=file, embed=embed)
+
+@bot.command()
 async def hello(ctx):
     """Used for debugging."""
     await ctx.send("Hello world!")
+
+@bot.event
+async def on_message(message):
+
+    lb = Leaderboard()
+
+    # Ignore messages sent by the bot itself
+    if message.author == bot.user:
+        return
+    
+    user_id = message.author.id
+    user_name = await bot.fetch_user(user_id)
+    channel_name = message.channel.name
+
+    lb.add_exp(str(user_id), str(user_name))
+
+    await bot.process_commands(message)
 
 @bot.command()
 async def next_matches(ctx, input_team):  # This command has one required argument (`input_team`) which means that the command name has to be followed by an argument in Discord.
@@ -375,7 +484,7 @@ async def matchweek(ctx, input_league, input_mw, input_season=None):
     await ctx.send(f"Matches for {league_input} matchweek {input_mw}:")
     await ctx.send(table)
 
-@bot.command()
+@bot.command(aliases=['next_disappointment'])
 async def next_match(ctx):
     """Announces matchday for your club or says when the next match is if it isn't today.
 
@@ -419,8 +528,6 @@ async def next_match(ctx):
 
     team_id = findTeamId(main_club)
 
-    today = datetime.date.today().strftime('%Y-%m-%d')
-
     club_response = requests.get(f'https://www.thesportsdb.com/api/v1/json/{API_TOKEN}/searchteams.php?t={main_club}')
     match_response = requests.get(f'https://www.thesportsdb.com/api/v1/json/{API_TOKEN}/eventsnext.php?id={team_id}')
     club = club_response.json()
@@ -428,7 +535,7 @@ async def next_match(ctx):
 
     if fixtures['events'] is not None and int(timeConverter(fixtures['events'][0]['strTimestamp'])) > int(time.time()): # If the first listed match start time is ahead of the time now (If it has yet to start):
 
-        if today == fixtures['events'][0]['dateEvent']:
+        if int(timeConverter(timeNow())) > int(toMidnight(fixtures['events'][0]['dateEvent'])):
             matchLeague = fixtures['events'][0]['strLeague']
             matchHomeTeam = fixtures['events'][0]['strHomeTeam']
             matchAwayTeam = fixtures['events'][0]['strAwayTeam']
@@ -772,20 +879,22 @@ async def past_matches(ctx, input_team):  # This command has one required argume
         await ctx.send(f"Command failed, please try again!")
         await ctx.send(error)
 
-@bot.command()
+@bot.command(name='stats', help="""
+            Shows the specified stat.
+            Usage: {stat}
+
+            Parameters:
+            -   stat: The stat you want Better Gaudium to generate a graph for. Only general Premier League stats for now unless specified otherwise.
+
+            Stats available:
+            -   goals: Scatterplot of goals scored against minutes played.
+            -   assists: Scatterplot of assists against minutes played.
+            -   xg: Bar chart of net xG against opponents in all competitions.
+            -   sentoff: Pie chart of all sending offs per team.
+            """  
+                )
 async def stats(ctx, stat):
-    """Shows the specified stat.
-        Usage: {stat}
 
-        Parameters:
-        -   stat: The stat you want Better Gaudium to generate a graph for. Only general Premier League stats for now unless specified otherwise.
-
-        Stats available:
-        -   goals: Scatterplot of goals scored against minutes played.
-        -   assists: Scatterplot of assists against minutes played.
-        -   xg: Bar chart of net xG against opponents in all competitions.
-        -   sentoff: Pie chart of all sending offs per team.
-    """
     scatter_plot = ['goals', 'assists']
     bar_chart = ['xg']
     pie_chart = ['sentoff']
@@ -942,10 +1051,14 @@ async def stats(ctx, stat):
             plt.close()
 
 try:
-    # Run the bot with the token to connect it to Discord
+    lb = Leaderboard()
+    lb.create_table()
+
     bot.run(TOKEN)
+
 except discord.LoginFailure:
     print("Invalid bot token. Please check your token.")
+
 except discord.HTTPException as e:
     print(f"An error occurred while connecting to Discord: {e}")
     # You can implement custom logic to handle the error, like retrying the connection after a delay.
