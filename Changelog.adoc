@@ -2,7 +2,11 @@
 
 === Added
 
+* Leaderboard functionality. Any user who posts in your server now gets XP!
 
+=== Changed
+
+* next_match command now bases its output on the timezone of where the match is played. It's only matchday when stadium is on the right day!
 
 == [0.0.1] - 2023-11-03
 
