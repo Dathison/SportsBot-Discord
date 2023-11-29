@@ -2,7 +2,7 @@ import secrets_file
 import discord
 import requests
 from tabulate import tabulate
-from discord.ext import commands
+from discord.ext import commands, tasks
 import pandas as pd
 import datetime
 import json
@@ -20,6 +20,7 @@ from adjustText import adjust_text
 import sqlite3
 import pytz
 import youtube_dl
+# Also requires ffmpeg via apt.
 
 DB_NAME = "leaderboard.db"
 db_create = """
@@ -41,8 +42,13 @@ bot = commands.Bot(command_prefix='g!', description=description, help_command=co
 #### DEFINING YT-DL DATA
 youtube_dl.utils.bug_reports_message = lambda: ''
 
+download_path = os.path.join(os.getcwd(), 'yt-dls')
+if not os.path.exists(download_path):
+    os.makedirs(download_path)
+
 ytdl_format_options = {
     'format': 'bestaudio/best',
+    'outtmpl': f'{download_path}/%(title)s-%(id)s.%(ext)s',
     'restrictfilenames': True,
     'noplaylist': True,
     'nocheckcertificate': True,
@@ -257,6 +263,7 @@ async def on_ready():
     print(bot.user.name)
     print(bot.user.id)
     print('------')
+    check_voice_state.start()
 
     channel = bot.get_channel(1138455667133382716)  # Get channel for bot testing room.
     await channel.send(f"{bot.user.name} is online!")
@@ -283,6 +290,13 @@ async def on_ready():
             os.execv(sys.executable, ['python3'] + sys.argv)
 
         await asyncio.sleep(180)
+
+@tasks.loop(seconds=60)  # Run this check every 60 seconds
+async def check_voice_state():
+    for vc in bot.voice_clients:
+        if vc.is_connected() and (not vc.is_playing() and not vc.is_paused()):
+            print(f"Left {vc.channel} due to inactivity.")
+            await vc.disconnect()
 
 @bot.command()
 async def leaderboard(ctx):
