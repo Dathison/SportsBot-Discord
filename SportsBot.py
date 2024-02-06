@@ -1046,7 +1046,7 @@ async def stats(ctx, stat):
     if str(stat.lower()) in bar_chart:
         url = 'https://fbref.com/en/squads/19538871/2023-2024/all_comps/Manchester-United-Stats-All-Competitions'
         response = requests.get(url).text.replace('<!--', '').replace('-->', '')
-        df = pd.read_html(response, header=0)[4]
+        df = pd.read_html(response, header=0)[5]
 
         df['Opp_Venue'] = df.apply(lambda row: f"{row['Opponent']} (H)" if row['Venue'] == 'Home' else f"{row['Opponent']} (A)", axis=1)
         df['xGT'] = df['xG'] - df['xGA']    # xG Total
