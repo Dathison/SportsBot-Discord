@@ -8,3 +8,4 @@ gitpython
 matplotlib
 adjustText
 pytz
+lxml
